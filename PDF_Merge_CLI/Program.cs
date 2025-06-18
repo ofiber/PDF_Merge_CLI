@@ -17,11 +17,17 @@ namespace PDF_Merge_CLI
 
     public class PDF_Merge
     {
+        private static readonly Style highlightStyle = new Style(new Color(0, 191, 255)); // deepskyblue2
+
         public static void Main()
         {
+            AnsiConsole.Foreground = new Color(0, 191, 255); // Set text color to deepskyblue2
+
             Menu();
 
             string folderPath = GetFolderPath();
+
+            int option = ChooseOption();
 
             string outputFileName = GetMergedFileName();
 
@@ -29,8 +35,13 @@ namespace PDF_Merge_CLI
 
             if (files.Length == 0)
             {
-                Console.WriteLine("No PDF files found in the specified folder.");
+                AnsiConsole.MarkupLine("[red]No PDF files found in the specified folder.[/]");
                 return;
+            }
+
+            if(option == 1)
+            {
+                SelectFiles(ref files, folderPath);
             }
 
             MergePDFs(files, outputFileName, folderPath);
@@ -43,12 +54,15 @@ namespace PDF_Merge_CLI
 
         private static void Menu()
         {
+            //var highlightStyle = new Style(new Color(0, 191, 255));
+
             WriteAscii(true);
 
             var selection = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                 .Title("Please select an option:")
                 .PageSize(3)
+                .HighlightStyle(highlightStyle)
                 .AddChoices(
                     new[]
                     {
@@ -74,7 +88,7 @@ namespace PDF_Merge_CLI
             if (clear)
                 Console.Clear();
 
-            AnsiConsole.MarkupLine("[blue]\r\n\r\n██████╗ ██████╗ ███████╗    ███╗   ███╗███████╗██████╗  ██████╗ ███████╗██████╗ " +
+            AnsiConsole.MarkupLine("[deepskyblue2]\r\n\r\n██████╗ ██████╗ ███████╗    ███╗   ███╗███████╗██████╗  ██████╗ ███████╗██████╗ " +
                                              "\r\n██╔══██╗██╔══██╗██╔════╝    ████╗ ████║██╔════╝██╔══██╗██╔════╝ ██╔════╝██╔══██╗" +
                                              "\r\n██████╔╝██║  ██║█████╗      ██╔████╔██║█████╗  ██████╔╝██║  ███╗█████╗  ██████╔╝" +
                                              "\r\n██╔═══╝ ██║  ██║██╔══╝      ██║╚██╔╝██║██╔══╝  ██╔══██╗██║   ██║██╔══╝  ██╔══██╗" +
@@ -82,6 +96,43 @@ namespace PDF_Merge_CLI
                                              "\r\n╚═╝     ╚═════╝ ╚═╝         ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝" +
                                              "\r\n                                                                                " +
                                              "\r\n\r\n[/]");
+        }
+
+        private static void SelectFiles(ref string[] files, string folderPath)
+        {
+            string[] fileNames = Array.ConvertAll(files, file => System.IO.Path.GetFileName(file));
+
+            var selectedFiles = AnsiConsole.Prompt(
+                new MultiSelectionPrompt<string>()
+                    .Title("\n\nSelect the [deepskyblue2]PDF files[/] you want to merge:")
+                    .PageSize(10)
+                    .HighlightStyle(highlightStyle)
+                    .MoreChoicesText("[grey](Move up and down to reveal more files)[/]")
+                    .InstructionsText("[grey](Press [deepskyblue2]<space>[/] to toggle selection, [green]<enter>[/] to confirm)[/]")
+                    .AddChoices(fileNames));
+
+            if (selectedFiles.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[red]No files selected. Merging all files in the folder.[/]");
+                return; // No files selected, return to merge all files
+            }
+
+            // Convert selected file names back to full paths
+            List<string> selectedFilePaths = new List<string>();
+            foreach (var fileName in selectedFiles)
+            {
+                string fullPath = System.IO.Path.Combine(folderPath, fileName);
+                if (System.IO.File.Exists(fullPath))
+                {
+                    selectedFilePaths.Add(fullPath);
+                }
+                else
+                {
+                    AnsiConsole.MarkupLine($"[red]File not found:[/] {fullPath}");
+                }
+            }
+
+            files = selectedFilePaths.ToArray();
         }
 
         private static void MergePDFs(string[] files, string outputFileName, string folderPath)
@@ -125,7 +176,7 @@ namespace PDF_Merge_CLI
             outputDocument.Save(System.IO.Path.Combine(folderPath, outputFileName));
 
             AnsiConsole.MarkupLine($"\n[green]Successfully merged {fileCount} files into {outputFileName}[/]");
-            AnsiConsole.MarkupLine($"[blue]Total size of merged files: {FormatBytes(totalSize)}[/]");
+            AnsiConsole.MarkupLine($"[deepskyblue2]Total size of merged files: {FormatBytes(totalSize)}[/]");
         }
 
         private static string FormatBytes(BigInteger bytes)
@@ -141,6 +192,26 @@ namespace PDF_Merge_CLI
             return $"{len:0.##} {sizes[order]}";
         }
 
+        private static int ChooseOption()
+        {
+            var selection = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("Please select an option:")
+                    .PageSize(3)
+                    .HighlightStyle(highlightStyle)
+                    .AddChoices(new[] {
+                        "Merge [red][underline]all[/][/] files in folder",
+                        "Merge only [red][underline]selected[/][/] files"
+                    }));
+
+            if (selection == "Merge [red][underline]all[/][/] files in folder")
+                return 0;
+            else if (selection == "Merge only [red][underline]selected[/][/] files")
+                return 1;
+            else
+                return -1; // Invalid selection
+        }
+
         private static string GetFolderPath()
         {
             var folderPath = "";
@@ -148,12 +219,24 @@ namespace PDF_Merge_CLI
             do
             {
                 folderPath = AnsiConsole.Prompt(
-                    new TextPrompt<string>("Enter the [blue]path[/] to the folder containing the PDFs to merge:")
+                    new TextPrompt<string>("Enter the [deepskyblue2]path[/] to the folder containing the PDFs to merge: ")
                         .Validate(path =>
                         {
-                            return string.IsNullOrWhiteSpace(path) || !System.IO.Directory.Exists(path)
-                                ? ValidationResult.Error("[red]The folder path is invalid or does not exist.[/]")
-                                : ValidationResult.Success();
+                            if (string.IsNullOrWhiteSpace(path) || !System.IO.Directory.Exists(path))
+                            {
+                                WriteAscii(true);
+                                return ValidationResult.Error("[red]The folder path is invalid or does not exist.[/]");
+                            }
+                            else
+                            {
+                                WriteAscii(true);
+                                AnsiConsole.MarkupLine("Enter the [deepskyblue2]path[/] to the folder containing the PDFs to merge: " + path + "\n\n");
+                                return ValidationResult.Success();
+                            }
+
+                            //return string.IsNullOrWhiteSpace(path) || !System.IO.Directory.Exists(path)
+                            //    ? (ValidationResult.Error("[red]The folder path is invalid or does not exist.[/]"))
+                            //    : ValidationResult.Success();
                         }));
 
             } while (string.IsNullOrWhiteSpace(folderPath) || !System.IO.Directory.Exists(folderPath));
@@ -164,10 +247,8 @@ namespace PDF_Merge_CLI
         private static string GetMergedFileName()
         {
             var outputFileName = AnsiConsole.Prompt(
-                new TextPrompt<string>("[blue]Name[/] the merged file ([underline]without[/] extension):"));
+                new TextPrompt<string>("[deepskyblue2]Name[/] the merged file ([underline]without[/] extension):"));
 
-            //Console.Write("\n\nEnter a name for the merged PDF file (without extension, leave blank for default):\n-> ");
-            //string? outputFileName = Console.ReadLine();
 
             if (string.IsNullOrWhiteSpace(outputFileName))
             {
@@ -195,7 +276,7 @@ namespace PDF_Merge_CLI
                 })
                 .Start(ctx =>
                 {
-                    var task = ctx.AddTask("[blue]Merging PDFs...[/]");
+                    var task = ctx.AddTask("[deepskyblue2]Merging PDFs...[/]");
 
                     while (!task.IsFinished)
                     {
