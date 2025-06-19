@@ -45,9 +45,9 @@ namespace PDF_Merge_CLI
 
             int option = ChooseOption();
 
-            string outputFileName = GetMergedFileName();
-
             string[] files = System.IO.Directory.GetFiles(folderPath, "*.pdf");
+
+            string outputFileName = GetMergedFileName(files);
 
             if (files.Length == 0)
             {
@@ -57,7 +57,10 @@ namespace PDF_Merge_CLI
 
             if(option == 1)
             {
-                SelectFiles(ref files, folderPath);
+                do
+                {
+                    SelectFiles(ref files, folderPath);
+                } while (!ShowSelectionConfirmation(ref files, folderPath));
             }
 
             MergePDFs(files, outputFileName, folderPath);
@@ -151,6 +154,50 @@ namespace PDF_Merge_CLI
             files = selectedFilePaths.ToArray();
         }
 
+        private static bool ShowSelectionConfirmation(ref string[] files, string folderPath)
+        {
+            var summaryTable = new Table()
+                .Border(TableBorder.Rounded)
+                .Title("[deepskyblue2]Selected Files[/]")
+                .AddColumn(new TableColumn("File Name").Centered())
+                .AddColumn(new TableColumn("Size").Centered());
+
+            long totalSize = 0;
+
+            foreach (var file in files)
+            {
+                var fileInfo = new System.IO.FileInfo(file);
+
+                summaryTable.AddRow(
+                    new Markup($"[deepskyblue2]{fileInfo.Name}[/]"),
+                    new Markup(FormatBytes((BigInteger)fileInfo.Length)));
+
+                totalSize += fileInfo.Length;
+            }
+
+            AnsiConsole.Write(summaryTable);
+
+            var confirmation = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[deepskyblue2]You have selected the following files to merge:[/]\n\n")
+                        .PageSize(10)
+                        .HighlightStyle(highlightStyle)
+                        .AddChoices(new[] { "Yes", "No" }));
+
+
+            if (confirmation == "Yes")
+            {
+                return true; // Proceed with merging
+            }
+            else
+            {
+                WriteAscii(true);
+                
+                files = System.IO.Directory.GetFiles(folderPath, "*.pdf");
+                return false; // Cancel selection, return to file selection
+            }
+        }
+
         private static void MergePDFs(string[] files, string outputFileName, string folderPath)
         {
             // Display loading screen
@@ -191,8 +238,47 @@ namespace PDF_Merge_CLI
 
             outputDocument.Save(System.IO.Path.Combine(folderPath, outputFileName));
 
-            AnsiConsole.MarkupLine($"\n[green]Successfully merged {fileCount} files into {outputFileName}[/]");
-            AnsiConsole.MarkupLine($"[deepskyblue2]Total size of merged files: {FormatBytes(totalSize)}[/]");
+            AnsiConsole.MarkupLine($"\n[green]Successfully merged {fileCount} files into {outputFileName}[/]\n");
+
+            var summaryTable = new Table()
+                .Border(TableBorder.Rounded)
+                .Title("[deepskyblue2]Merge Summary[/]")
+                .AddColumn(new TableColumn("File Name").Centered())
+                .AddColumn(new TableColumn("Size").Centered());
+
+            foreach (var file in files)
+            {
+                var fileInfo = new System.IO.FileInfo(file);
+                summaryTable.AddRow(
+                    new Markup($"[deepskyblue2]{fileInfo.Name}[/]"),
+                    new Markup(FormatBytes((BigInteger)fileInfo.Length)));
+            }
+
+            summaryTable.AddRow(
+                new Markup("[deepskyblue2]Total[/]"),
+                new Markup(FormatBytes((BigInteger)totalSize)));
+
+            AnsiConsole.Write(summaryTable);
+
+            Console.WriteLine("\n\n");
+
+            var selection = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("What would you like to do next?")
+                    .PageSize(3)
+                    .HighlightStyle(highlightStyle)
+                    .AddChoices(new[]
+                    {
+                        "Merge another set of files",
+                        "Exit"
+                    }));
+
+            if(selection == "Exit")
+                Environment.Exit(0);
+            else if(selection == "Merge another set of files")
+                Main(); // Restart the merging process
+            else
+                AnsiConsole.MarkupLine("[red]Invalid selection. Exiting.[/]"); // Handle invalid selection
         }
 
         private static string FormatBytes(BigInteger bytes)
@@ -260,11 +346,10 @@ namespace PDF_Merge_CLI
             return folderPath;
         }
 
-        private static string GetMergedFileName()
+        private static string GetMergedFileName(string[] files)
         {
             var outputFileName = AnsiConsole.Prompt(
                 new TextPrompt<string>("[deepskyblue2]Name[/] the merged file ([underline]without[/] extension):"));
-
 
             if (string.IsNullOrWhiteSpace(outputFileName))
             {
@@ -275,8 +360,43 @@ namespace PDF_Merge_CLI
                 outputFileName += ".pdf";
             }
 
+            // Check if the outputFileName already exists in the list of files
+            if (Array.Exists(files, file => System.IO.Path.GetFileName(file).Equals(outputFileName, StringComparison.OrdinalIgnoreCase)))
+            {
+                AnsiConsole.MarkupLine($"[red]A file with the name {outputFileName} already exists in the selected files.[/]");
+
+                var selection = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("What would you like to do?")
+                        .PageSize(3)
+                        .HighlightStyle(highlightStyle)
+                        .AddChoices(new[]
+                        {
+                            "Use a different name",
+                            "Overwrite the existing file"
+                        }));
+
+                if (selection == "Use a different name")
+                {
+                    outputFileName = GetMergedFileName(files); // Recursively prompt for a new name
+                }
+                else if (selection == "Overwrite the existing file")
+                {
+                    // Do nothing, we will overwrite the existing file
+                }
+                else
+                {
+                    AnsiConsole.MarkupLine("[red]Invalid selection. Using default name.[/]");
+                    outputFileName = "MergedPDF_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf";
+                }
+
+                // Optionally, you can prompt the user to enter a different name here
+            }
+
             return outputFileName;
         }
+
+        
 
         private static void ShowLoadingScreen()
         { 
