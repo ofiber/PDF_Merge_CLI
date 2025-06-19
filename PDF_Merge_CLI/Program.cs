@@ -1,9 +1,21 @@
-﻿//  ██████╗ ██████╗ ███████╗    ███╗   ███╗███████╗██████╗  ██████╗ ███████╗██████╗ 
-//  ██╔══██╗██╔══██╗██╔════╝    ████╗ ████║██╔════╝██╔══██╗██╔════╝ ██╔════╝██╔══██╗
-//  ██████╔╝██║  ██║█████╗      ██╔████╔██║█████╗  ██████╔╝██║  ███╗█████╗  ██████╔╝
-//  ██╔═══╝ ██║  ██║██╔══╝      ██║╚██╔╝██║██╔══╝  ██╔══██╗██║   ██║██╔══╝  ██╔══██╗
-//  ██║     ██████╔╝██║         ██║ ╚═╝ ██║███████╗██║  ██║╚██████╔╝███████╗██║  ██║
-//  ╚═╝     ╚═════╝ ╚═╝         ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+﻿/*
+  ██████╗ ██████╗ ███████╗    ███╗   ███╗███████╗██████╗  ██████╗ ███████╗██████╗ 
+  ██╔══██╗██╔══██╗██╔════╝    ████╗ ████║██╔════╝██╔══██╗██╔════╝ ██╔════╝██╔══██╗
+  ██████╔╝██║  ██║█████╗      ██╔████╔██║█████╗  ██████╔╝██║  ███╗█████╗  ██████╔╝
+  ██╔═══╝ ██║  ██║██╔══╝      ██║╚██╔╝██║██╔══╝  ██╔══██╗██║   ██║██╔══╝  ██╔══██╗
+  ██║     ██████╔╝██║         ██║ ╚═╝ ██║███████╗██║  ██║╚██████╔╝███████╗██║  ██║
+  ╚═╝     ╚═════╝ ╚═╝         ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+
+ This tool merges all PDF files in a specified folder into a single PDF file.
+ You will be prompted to enter the folder path and the desired name for the merged file.
+ You have the option to merge all files in the folder or select specific files to merge.
+
+ Author: Owen Fiber
+ Date: 06/18/2025
+ License: N/A
+ PDF_Merge_CLI - A command-line tool for merging PDF files
+ Version: 0.2.0
+*/
 
 namespace PDF_Merge_CLI
 {
@@ -11,16 +23,20 @@ namespace PDF_Merge_CLI
     using System.Collections.Generic;
     using System.Numerics;
     using System.Reflection.Metadata.Ecma335;
+    using System.Text;
     using PdfSharp.Pdf;
     using PdfSharp.Pdf.IO;
     using Spectre.Console;
 
     public class PDF_Merge
     {
+
         private static readonly Style highlightStyle = new Style(new Color(0, 191, 255)); // deepskyblue2
 
         public static void Main()
         {
+            //AnsiConsole.Profile.Capabilities.Unicode = true;
+            Console.OutputEncoding = Encoding.UTF8;
             AnsiConsole.Foreground = new Color(0, 191, 255); // Set text color to deepskyblue2
 
             Menu();
@@ -266,13 +282,18 @@ namespace PDF_Merge_CLI
         { 
             WriteAscii(true);
 
+            // If the console supports Unicode, use a spinner with dots, otherwise use a default spinner
+            var spinner = AnsiConsole.Profile.Capabilities.Unicode ? Spinner.Known.Dots : Spinner.Known.Default;
+
             AnsiConsole.Progress()
                 .Columns(new ProgressColumn[]
                 {
                     new TaskDescriptionColumn(),    // Task description
-                    new ProgressBarColumn(),        // Progress bar
+                    new ProgressBarColumn()
+                    .CompletedStyle(Color.Blue)
+                    .RemainingStyle(Color.Grey),    // Progress bar
                     new PercentageColumn(),         // Percentage
-                    new SpinnerColumn(),            // Spinner
+                    new SpinnerColumn(spinner),     // Spinner
                 })
                 .Start(ctx =>
                 {
