@@ -23,6 +23,7 @@ namespace PDF_Merge_CLI
     using System.Collections.Generic;
     using System.Numerics;
     using System.Reflection.Metadata.Ecma335;
+    using System.Runtime.CompilerServices;
     using System.Text;
     using PdfSharp.Pdf;
     using PdfSharp.Pdf.IO;
@@ -32,6 +33,7 @@ namespace PDF_Merge_CLI
     {
 
         private static readonly Style highlightStyle = new Style(new Color(0, 191, 255)); // deepskyblue2
+        private static readonly Spinner spinner = AnsiConsole.Profile.Capabilities.Unicode ? Spinner.Known.Dots : Spinner.Known.Default;
 
         public static void Main()
         {
@@ -52,7 +54,16 @@ namespace PDF_Merge_CLI
             if (files.Length == 0)
             {
                 AnsiConsole.MarkupLine("[red]No PDF files found in the specified folder.[/]");
-                return;
+
+                AnsiConsole.Status()
+                    .Spinner(spinner)
+                    .Start("[deepskyblue2]Returning to main menu . . .[/]", ctx =>
+                    {
+                        ctx.Status = "[deepskyblue2]Returning to main menu . . .[/]";
+                        Thread.Sleep(2500); // Simulate some delay
+                });
+
+                Main();
             }
 
             if(option == 1)
@@ -403,7 +414,7 @@ namespace PDF_Merge_CLI
             WriteAscii(true);
 
             // If the console supports Unicode, use a spinner with dots, otherwise use a default spinner
-            var spinner = AnsiConsole.Profile.Capabilities.Unicode ? Spinner.Known.Dots : Spinner.Known.Default;
+            
 
             AnsiConsole.Progress()
                 .Columns(new ProgressColumn[]
